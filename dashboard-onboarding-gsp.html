@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding GSP — Painel de Liderança</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --navy:#0F2340;--navy2:#1B3A5C;--blue:#2563EB;--blue-lt:#EFF6FF;
+  --teal:#0D9488;--teal-lt:#F0FDFA;--amber:#D97706;--amber-lt:#FFFBEB;
+  --red:#DC2626;--red-lt:#FEF2F2;--green:#16A34A;--green-lt:#F0FDF4;
+  --gray0:#F8F9FB;--gray1:#F1F3F6;--gray2:#E4E7EC;--gray3:#CBD2DA;
+  --gray4:#8896A6;--gray5:#4B5668;--gray6:#1E2733;--white:#FFFFFF;
+  --text:#1E2733;--text2:#4B5668;--text3:#8896A6;
+  --radius:10px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(15,35,64,.08),0 1px 2px rgba(15,35,64,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--gray0);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:220px;min-height:100vh;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar-logo .institution{font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.sidebar-logo .product{font-size:15px;font-weight:600;color:#fff}
+.sidebar-nav{padding:16px 12px;flex:1}
+.nav-label{font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;padding:0 8px;margin-bottom:6px;margin-top:16px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;transition:background .15s,color .15s;margin-bottom:2px;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+.nav-item.active{background:rgba(37,99,235,.3);color:#fff}
+.sidebar-bottom{padding:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.3)}
+.main{flex:1;min-width:0}
+.topbar{background:var(--white);border-bottom:1px solid var(--gray2);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:var(--shadow)}
+.topbar-title{font-size:15px;font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.last-update{font-size:12px;color:var(--text3)}
+.btn{font-family:inherit;font-size:12px;font-weight:500;padding:7px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--gray2);background:var(--white);color:var(--text2);transition:background .15s}
+.btn:hover{background:var(--gray1)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#1d4ed8}
+.content{padding:28px}
+.connect-card{background:var(--white);border:1px solid var(--gray2);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow)}
+.connect-card h3{font-size:13px;font-weight:600;margin-bottom:4px}
+.connect-card p{font-size:12px;color:var(--text3);margin-bottom:14px}
+.connect-row{display:flex;gap:10px;flex-wrap:wrap}
+.connect-row input{flex:1;min-width:260px;font-family:inherit;font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid var(--gray2);background:var(--gray0);color:var(--text);outline:none}
+.connect-row input:focus{border-color:var(--blue);background:var(--white)}
+.tip-row{margin-top:10px;font-size:11px;color:var(--text3)}
+.tip-row b{color:var(--blue);font-weight:500}
+.status-msg{font-size:12px;margin-top:10px;min-height:18px}
+.status-msg.loading{color:var(--blue)}
+.status-msg.ok{color:var(--green)}
+.status-msg.error{color:var(--red)}
+.metrics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.metric-card{background:var(--white);border:1px solid var(--gray2);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue))}
+.metric-label{font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:500}
+.metric-value{font-size:28px;font-weight:600;line-height:1}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:6px}
+.metric-card.ok .metric-value{color:var(--green)}
+.metric-card.warn .metric-value{color:var(--amber)}
+.metric-card.risk .metric-value{color:var(--red)}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;margin-top:8px;flex-wrap:wrap;gap:10px}
+.section-header h2{font-size:14px;font-weight:600}
+.section-header p{font-size:12px;color:var(--text3)}
+.charts-row{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:20px}
+.chart-card{background:var(--white);border:1px solid var(--gray2);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow)}
+.chart-card-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.chart-card-sub{font-size:11px;color:var(--text3);margin-bottom:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.table-card{background:var(--white);border:1px solid var(--gray2);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);margin-bottom:24px;overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.data-table th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:var(--text3);border-bottom:1px solid var(--gray2);white-space:nowrap}
+.data-table td{padding:9px 10px;border-bottom:1px solid var(--gray1);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover td{background:var(--gray0)}
+.mini-bar{display:flex;align-items:center;gap:6px}
+.mini-bar-bg{flex:1;height:5px;background:var(--gray2);border-radius:3px;overflow:hidden;max-width:70px}
+.mini-bar-fill{height:100%;border-radius:3px}
+.pct-lbl{font-size:11px;color:var(--text3);min-width:28px;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px}
+.badge-ok{background:var(--green-lt);color:#15803d}
+.badge-warn{background:var(--amber-lt);color:#b45309}
+.badge-risk{background:var(--red-lt);color:#b91c1c}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filter-pill{font-family:inherit;font-size:11px;font-weight:500;padding:5px 12px;border-radius:99px;border:1px solid var(--gray2);background:var(--white);color:var(--text3);cursor:pointer;transition:all .15s}
+.filter-pill:hover{background:var(--gray1);color:var(--text2)}
+.filter-pill.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.regua-wrap{overflow-x:auto}
+.regua-table{border-collapse:collapse;font-size:11px;min-width:900px;width:100%}
+.regua-table th{padding:7px 8px;font-weight:600;font-size:10px;border-bottom:1px solid var(--gray2);color:var(--text3);white-space:nowrap;text-align:left}
+.regua-table td{padding:6px 8px;border-bottom:1px solid var(--gray1);vertical-align:middle;font-size:11px}
+.regua-table tr:last-child td{border-bottom:none}
+.regua-table tbody tr:hover td{background:var(--gray0)}
+.ms-hdr{text-align:center;padding:4px 6px;font-size:10px;font-weight:600;color:#fff;border-radius:6px;white-space:nowrap;line-height:1.3}
+.ms-done{background:var(--green-lt);color:#15803d;border-radius:6px;text-align:center;padding:3px 8px;font-weight:600;font-size:11px}
+.ms-pend{background:var(--gray1);color:var(--text3);border-radius:6px;text-align:center;padding:3px 8px;font-size:11px}
+.progress-ring-wrap{display:flex;align-items:center;gap:8px}
+@media(max-width:900px){.sidebar{display:none}.metrics-grid{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="institution">Colégio Objetivo</div>
+      <div class="product">Onboarding GSP</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Painel</div>
+      <div class="nav-item active" onclick="scrollTo(0,0)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Visão geral
+      </div>
+      <div class="nav-item" onclick="document.getElementById('regua-section').scrollIntoView({behavior:'smooth'})">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Régua de checkpoints
+      </div>
+      <div class="nav-label">Unidades</div>
+      <div class="nav-item" onclick="setUnit('Ponta')">Ponta</div>
+      <div class="nav-item" onclick="setUnit('Embaré')">Embaré</div>
+      <div class="nav-item" onclick="setUnit('Conselheiro')">Conselheiro</div>
+      <div class="nav-item" onclick="setUnit('Guarujá')">Guarujá</div>
+      <div class="nav-item" onclick="setUnit('Praia Grande')">Praia Grande</div>
+      <div class="nav-item" onclick="setUnit('São Vicente')">São Vicente</div>
+      <div class="nav-item" onclick="setUnit('São José')">São José</div>
+      <div class="nav-item" onclick="setUnit('Marupiara')">Marupiara</div>
+      <div class="nav-item" onclick="setUnit('CJA')">CJA</div>
+    </nav>
+    <div class="sidebar-bottom">v2.0 · 2025</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <span class="topbar-title">Painel de liderança</span>
+      <div class="topbar-right">
+        <span class="last-update" id="lastUpdate">Aguardando dados</span>
+        <button class="btn" onclick="loadData()">↻ Atualizar</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="connect-card">
+        <h3>Conectar ao Google Sheets</h3>
+        <p>Cole o link CSV da aba publicada para carregar os dados ao vivo.</p>
+        <div class="connect-row">
+          <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/..." />
+          <button class="btn btn-primary" onclick="loadData()">Carregar</button>
+        </div>
+        <div class="tip-row"><b>Como publicar:</b> Arquivo → Compartilhar → Publicar na web → selecione a aba → escolha CSV → copie o link.</div>
+        <div class="status-msg" id="statusMsg"></div>
+      </div>
+
+      <div class="metrics-grid" id="metricsGrid"></div>
+
+      <div class="section-header">
+        <div><h2>Visão geral por unidade</h2><p>Dados inseridos manualmente ou carregados da aba publicada</p></div>
+        <div class="filter-row" id="unitFilters" style="margin-bottom:0"></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-card-title">Progresso por checkpoint</div>
+          <div class="chart-card-sub">% de alunos com Sim em cada etapa</div>
+          <div class="legend">
+            <span class="leg"><span class="leg-dot" style="background:#16A34A"></span>Acima de 70%</span>
+            <span class="leg"><span class="leg-dot" style="background:#D97706"></span>40–70%</span>
+            <span class="leg"><span class="leg-dot" style="background:#DC2626"></span>Abaixo de 40%</span>
+          </div>
+          <div style="position:relative;width:100%;height:280px">
+            <canvas id="etapasChart" role="img" aria-label="Progresso por checkpoint">Progresso por checkpoint.</canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Alunos por unidade</div>
+          <div class="chart-card-sub">Total de matrículas registradas</div>
+          <div style="position:relative;width:100%;height:280px">
+            <canvas id="unitsChart" role="img" aria-label="Alunos por unidade">Alunos por unidade.</canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="chart-card-title" style="margin-bottom:16px">Detalhamento por unidade</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:16%">Unidade</th>
+              <th style="width:8%">Alunos</th>
+              <th style="width:13%">Pgto confirmado</th>
+              <th style="width:13%">1º contato</th>
+              <th style="width:13%">Engajamento</th>
+              <th style="width:13%">Pedagógico</th>
+              <th style="width:13%">Portal pais</th>
+              <th style="width:8%;text-align:center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="unitTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="regua-section">
+        <div class="section-header">
+          <div><h2>Régua de checkpoints — individual</h2><p id="reguaSubtitle">Carregue uma aba via link para ver o progresso individual</p></div>
+        </div>
+        <div class="filter-row">
+          <button class="filter-pill active" onclick="setReguaFilter('todos',this)">Todos</button>
+          <button class="filter-pill" onclick="setReguaFilter('incompleto',this)">Com pendências</button>
+          <button class="filter-pill" onclick="setReguaFilter('completo',this)">100% completo</button>
+        </div>
+        <div class="table-card">
+          <div class="regua-wrap">
+            <table class="regua-table">
+              <thead id="reguaHead"></thead>
+              <tbody id="reguaBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const UNITS_STATIC = [
+  {nome:'Ponta',      total:123,pgto:117,contato:112,eng:108,ped:53, portal:6,  cal:52},
+  {nome:'Embaré',     total:97, pgto:64, contato:63, eng:58, ped:50, portal:8,  cal:42},
+  {nome:'Conselheiro',total:44, pgto:22, contato:22, eng:25, ped:22, portal:10, cal:22},
+  {nome:'Guarujá',    total:96, pgto:44, contato:44, eng:35, ped:37, portal:38, cal:37},
+  {nome:'Praia Grande',total:168,pgto:111,contato:101,eng:74,ped:93,portal:43, cal:93},
+  {nome:'São Vicente',total:76, pgto:73, contato:54, eng:37, ped:37, portal:37, cal:37},
+  {nome:'São José',   total:149,pgto:148,contato:136,eng:99, ped:95, portal:0,  cal:98},
+  {nome:'Marupiara',  total:128,pgto:125,contato:122,eng:76, ped:2,  portal:0,  cal:119},
+  {nome:'CJA',        total:117,pgto:66, contato:66, eng:54, ped:0,  portal:0,  cal:0},
+];
+
+// Checkpoints as they appear in the CSV header
+const CHECKPOINTS = [
+  {label:'Pgto baixado',     col:'Pagamento da Mat. Baixado?',      color:'#0D6E56'},
+  {label:'Agenda Edu',       col:'Cadastro Agenda Edu?',            color:'#1D9E75'},
+  {label:'1º contato',       col:'1º Contato Realizado?',           color:'#1565C0'},
+  {label:'Engajamento',      col:'Houve engajamento?',              color:'#2563EB'},
+  {label:'Manual boas-vindas',col:'Manual de Boas Vindas Enviado?', color:'#6A1B9A'},
+  {label:'Pedagógico',       col:'Contato com pedagógico?',         color:'#AD1457'},
+  {label:'Acadêmico',        col:'Contato com Acadêmico?',          color:'#C62828'},
+  {label:'Portal dos pais',  col:'Acesso ao Portal dos Pais',       color:'#78350F'},
+  {label:'Calendário',       col:'Envio calendário?',               color:'#1E2733'},
+];
+
+let etapasChart=null, unitsChart=null;
+let activeUnits=new Set(UNITS_STATIC.map(u=>u.nome));
+let csvData=[], reguaFilter='todos';
+let currentUnitData=UNITS_STATIC;
+
+function pct(v,t){return t>0?Math.round(v/t*100):0}
+
+function getStatus(u){
+  const avg=pct(u.pgto+u.contato+u.eng+u.ped+u.portal+u.cal,u.total*6);
+  if(avg>=70)return{label:'Em dia',cls:'badge-ok',accent:'#16A34A'};
+  if(avg>=40)return{label:'Atenção',cls:'badge-warn',accent:'#D97706'};
+  return{label:'Risco',cls:'badge-risk',accent:'#DC2626'};
+}
+
+function barCell(val,total){
+  const p=pct(val,total);
+  const c=p>=70?'#16A34A':p>=40?'#D97706':'#DC2626';
+  return `<div class="mini-bar"><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:${p}%;background:${c}"></div></div><span class="pct-lbl">${p}%</span></div>`;
+}
+
+function filteredUnits(){return currentUnitData.filter(u=>activeUnits.has(u.nome));}
+
+function renderMetrics(){
+  const units=filteredUnits();
+  const tot=units.reduce((a,u)=>a+u.total,0);
+  const pgto=units.reduce((a,u)=>a+u.pgto,0);
+  const cont=units.reduce((a,u)=>a+u.contato,0);
+  const eng=units.reduce((a,u)=>a+u.eng,0);
+  const risk=units.filter(u=>getStatus(u).cls==='badge-risk').length;
+  const cards=[
+    {lbl:'Total de alunos',val:tot,sub:`${units.length} unidades ativas`,cls:'',accent:'#2563EB'},
+    {lbl:'Pgto confirmado',val:pct(pgto,tot)+'%',sub:`${pgto} alunos`,cls:pct(pgto,tot)>=70?'ok':'warn',accent:pct(pgto,tot)>=70?'#16A34A':'#D97706'},
+    {lbl:'1º contato',val:pct(cont,tot)+'%',sub:`${cont} alunos`,cls:pct(cont,tot)>=70?'ok':'warn',accent:pct(cont,tot)>=70?'#16A34A':'#D97706'},
+    {lbl:'Com engajamento',val:pct(eng,tot)+'%',sub:`${eng} alunos`,cls:pct(eng,tot)>=70?'ok':pct(eng,tot)>=40?'warn':'risk',accent:pct(eng,tot)>=70?'#16A34A':pct(eng,tot)>=40?'#D97706':'#DC2626'},
+    {lbl:'Unidades em risco',val:risk,sub:`de ${units.length} unidades`,cls:risk>0?'risk':'ok',accent:risk>0?'#DC2626':'#16A34A'},
+  ];
+  document.getElementById('metricsGrid').innerHTML=cards.map(c=>
+    `<div class="metric-card ${c.cls}" style="--accent:${c.accent}">
+      <div class="metric-label">${c.lbl}</div>
+      <div class="metric-value">${c.val}</div>
+      <div class="metric-sub">${c.sub}</div>
+    </div>`
+  ).join('');
+}
+
+function renderUnitFilters(){
+  document.getElementById('unitFilters').innerHTML=
+    `<button class="filter-pill active" onclick="toggleAllUnits(this)">Todas</button>`+
+    currentUnitData.map(u=>
+      `<button class="filter-pill ${activeUnits.has(u.nome)?'active':''}" onclick="toggleUnit('${u.nome}',this)">${u.nome}</button>`
+    ).join('');
+}
+
+function toggleAllUnits(btn){
+  const all=document.querySelectorAll('#unitFilters .filter-pill');
+  const anyOff=[...all].slice(1).some(b=>!b.classList.contains('active'));
+  if(anyOff){currentUnitData.forEach(u=>activeUnits.add(u.nome));all.forEach(b=>b.classList.add('active'));}
+  else{activeUnits.clear();all.forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+  redraw();
+}
+
+function toggleUnit(nome,btn){
+  if(activeUnits.has(nome)){activeUnits.delete(nome);btn.classList.remove('active');}
+  else{activeUnits.add(nome);btn.classList.add('active');}
+  redraw();
+}
+
+function setUnit(nome){
+  activeUnits=new Set([nome]);
+  renderUnitFilters();
+  redraw();
+}
+
+function renderUnitTable(){
+  document.getElementById('unitTableBody').innerHTML=filteredUnits().map(u=>{
+    const s=getStatus(u);
+    return`<tr>
+      <td style="font-weight:500">${u.nome}</td>
+      <td>${u.total}</td>
+      <td>${barCell(u.pgto,u.total)}</td>
+      <td>${barCell(u.contato,u.total)}</td>
+      <td>${barCell(u.eng,u.total)}</td>
+      <td>${barCell(u.ped,u.total)}</td>
+      <td>${barCell(u.portal,u.total)}</td>
+      <td style="text-align:center"><span class="badge ${s.cls}">${s.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function initCharts(){
+  if(etapasChart){etapasChart.destroy();etapasChart=null;}
+  if(unitsChart){unitsChart.destroy();unitsChart=null;}
+  const units=filteredUnits();
+  const tot=units.reduce((a,u)=>a+u.total,0);
+  const etapas=[
+    {lbl:'Pgto confirmado',v:pct(units.reduce((a,u)=>a+u.pgto,0),tot)},
+    {lbl:'1º contato',v:pct(units.reduce((a,u)=>a+u.contato,0),tot)},
+    {lbl:'Engajamento',v:pct(units.reduce((a,u)=>a+u.eng,0),tot)},
+    {lbl:'Pedagógico',v:pct(units.reduce((a,u)=>a+u.ped,0),tot)},
+    {lbl:'Portal dos pais',v:pct(units.reduce((a,u)=>a+u.portal,0),tot)},
+    {lbl:'Calendário',v:pct(units.reduce((a,u)=>a+u.cal,0),tot)},
+  ];
+  etapasChart=new Chart(document.getElementById('etapasChart'),{
+    type:'bar',
+    data:{labels:etapas.map(e=>e.lbl),datasets:[{label:'% com Sim',data:etapas.map(e=>e.v),
+      backgroundColor:etapas.map(e=>e.v>=70?'#16A34A':e.v>=40?'#D97706':'#DC2626'),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%',font:{size:11,family:'DM Sans'}},grid:{color:'rgba(0,0,0,0.04)'}},
+              y:{ticks:{font:{size:11,family:'DM Sans'}}}}}
+  });
+  unitsChart=new Chart(document.getElementById('unitsChart'),{
+    type:'bar',
+    data:{labels:units.map(u=>u.nome),datasets:[{label:'Alunos',data:units.map(u=>u.total),backgroundColor:'#0F2340',borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:11,family:'DM Sans'},maxRotation:40,autoSkip:false}},
+              y:{ticks:{font:{size:11,family:'DM Sans'}},grid:{color:'rgba(0,0,0,0.04)'}}}}
+  });
+}
+
+function redraw(){renderMetrics();renderUnitTable();initCharts();}
+
+function setReguaFilter(f,btn){
+  reguaFilter=f;
+  document.querySelectorAll('.filter-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReguaTable();
+}
+
+function renderReguaTable(){
+  if(!csvData.length){
+    document.getElementById('reguaHead').innerHTML='';
+    document.getElementById('reguaBody').innerHTML=
+      `<tr><td colspan="12" style="text-align:center;padding:2rem;color:#8896A6;font-size:12px">Cole o link CSV acima e clique em Carregar para ver o progresso individual.</td></tr>`;
+    return;
+  }
+
+  const filtered=csvData.filter(r=>{
+    const checks=CHECKPOINTS.map(c=>r[c.col]==='Sim');
+    const done=checks.filter(Boolean).length;
+    if(reguaFilter==='completo') return done===CHECKPOINTS.length;
+    if(reguaFilter==='incompleto') return done<CHECKPOINTS.length;
+    return true;
+  });
+
+  document.getElementById('reguaHead').innerHTML=`<tr>
+    <th style="min-width:180px">Aluno</th>
+    <th style="min-width:80px">Matrícula</th>
+    <th style="min-width:50px;text-align:center">%</th>
+    ${CHECKPOINTS.map(c=>`<th style="min-width:80px;text-align:center">
+      <div class="ms-hdr" style="background:${c.color}">${c.label}</div>
+    </th>`).join('')}
+  </tr>`;
+
+  if(!filtered.length){
+    document.getElementById('reguaBody').innerHTML=
+      `<tr><td colspan="${3+CHECKPOINTS.length}" style="text-align:center;padding:2rem;color:#8896A6;font-size:12px">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  document.getElementById('reguaBody').innerHTML=filtered.slice(0,80).map(r=>{
+    const checks=CHECKPOINTS.map(c=>r[c.col]==='Sim');
+    const done=checks.filter(Boolean).length;
+    const p=Math.round(done/CHECKPOINTS.length*100);
+    const pColor=p===100?'#16A34A':p>=60?'#D97706':'#DC2626';
+    return`<tr>
+      <td style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r['Nome do aluno']||''}</td>
+      <td style="color:#8896A6;font-size:11px">${r['Registro Acadêmico']||''}</td>
+      <td style="text-align:center"><span style="font-weight:600;color:${pColor};font-size:12px">${p}%</span></td>
+      ${checks.map(ok=>ok
+        ?`<td><div class="ms-done">✓ Sim</div></td>`
+        :`<td><div class="ms-pend">Não</div></td>`
+      ).join('')}
+    </tr>`;
+  }).join('')+
+  (filtered.length>80?`<tr><td colspan="${3+CHECKPOINTS.length}" style="text-align:center;padding:1rem;color:#8896A6;font-size:11px">Exibindo 80 de ${filtered.length} registros.</td></tr>`:'');
+}
+
+function extractSheetId(url){const m=url.match(/\/d\/([a-zA-Z0-9_-]+)/);return m?m[1]:null;}
+function extractGid(url){const m=url.match(/[#&?]gid=(\d+)/);return m?m[1]:'0';}
+
+function buildCsvUrl(url){
+  // If it's already a /pub?...output=csv link, use it directly
+  if(url.includes('/pub?')&&url.includes('output=csv')) return url;
+  // Otherwise build from spreadsheet ID
+  const id=extractSheetId(url);
+  if(!id) return null;
+  const gid=extractGid(url);
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+}
+
+function loadData(){
+  const url=document.getElementById('sheetUrl').value.trim();
+  const sb=document.getElementById('statusMsg');
+  if(!url){sb.className='status-msg error';sb.textContent='Cole o link do Google Sheets publicado como CSV.';return;}
+
+  const csvUrl=buildCsvUrl(url);
+  if(!csvUrl){sb.className='status-msg error';sb.textContent='Link inválido.';return;}
+
+  // Try with CORS proxy first
+  const proxyUrl=`https://corsproxy.io/?${encodeURIComponent(csvUrl)}`;
+
+  sb.className='status-msg loading';
+  sb.textContent='Carregando dados...';
+
+  Papa.parse(proxyUrl,{
+    download:true,header:true,skipEmptyLines:true,
+    complete(results){
+      if(!results.data||results.data.length<1){
+        sb.className='status-msg error';
+        sb.textContent='Nenhum dado encontrado. Verifique se a planilha está publicada como CSV.';
+        return;
+      }
+      csvData=results.data;
+      sb.className='status-msg ok';
+      sb.textContent=`${csvData.length} alunos carregados com sucesso.`;
+      document.getElementById('lastUpdate').textContent='Atualizado: '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('reguaSubtitle').textContent=`${csvData.length} alunos carregados — filtre abaixo`;
+
+      // Build unit data from CSV
+      buildUnitDataFromCsv(csvData);
+      renderReguaTable();
+    },
+    error(){
+      sb.className='status-msg error';
+      sb.textContent='Erro ao carregar. Certifique-se de que a planilha está publicada na web como CSV.';
+    }
+  });
+}
+
+function buildUnitDataFromCsv(rows){
+  // Try to detect unit column
+  const unitCol=Object.keys(rows[0]).find(k=>k.toLowerCase().includes('unidade')||k.toLowerCase().includes('filial'));
+  if(unitCol){
+    const unitMap={};
+    rows.forEach(r=>{
+      const u=r[unitCol]||'Sem unidade';
+      if(!unitMap[u]) unitMap[u]={nome:u,total:0,pgto:0,contato:0,eng:0,ped:0,portal:0,cal:0};
+      unitMap[u].total++;
+      if(r['Pagamento da Mat. Baixado?']==='Sim') unitMap[u].pgto++;
+      if(r['1º Contato Realizado?']==='Sim') unitMap[u].contato++;
+      if(r['Houve engajamento?']==='Sim') unitMap[u].eng++;
+      if(r['Contato com pedagógico?']==='Sim') unitMap[u].ped++;
+      if(r['Acesso ao Portal dos Pais']==='Sim') unitMap[u].portal++;
+      if(r['Envio calendário?']==='Sim') unitMap[u].cal++;
+    });
+    currentUnitData=Object.values(unitMap);
+  } else {
+    // Single unit CSV — aggregate into one
+    const u={nome:'Aba carregada',total:rows.length,pgto:0,contato:0,eng:0,ped:0,portal:0,cal:0};
+    rows.forEach(r=>{
+      if(r['Pagamento da Mat. Baixado?']==='Sim') u.pgto++;
+      if(r['1º Contato Realizado?']==='Sim') u.contato++;
+      if(r['Houve engajamento?']==='Sim') u.eng++;
+      if(r['Contato com pedagógico?']==='Sim') u.ped++;
+      if(r['Acesso ao Portal dos Pais']==='Sim') u.portal++;
+      if(r['Envio calendário?']==='Sim') u.cal++;
+    });
+    currentUnitData=[u];
+  }
+  activeUnits=new Set(currentUnitData.map(u=>u.nome));
+  renderUnitFilters();
+  redraw();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  renderMetrics();
+  renderUnitFilters();
+  renderUnitTable();
+  initCharts();
+  renderReguaTable();
+});
+</script>
+</body>
+</html>
